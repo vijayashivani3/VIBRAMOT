@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>VIBRAMOT — Vibration Fault Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"
+  onerror="this.onerror=null;var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js';document.head.appendChild(s);"></script>
+<style>
+:root{
+  --bg:#0d1310; --panel:#141d17; --panel2:#101712; --border:#243029; --border-hi:#334539;
+  --text:#dce8de; --muted:#7f9686; --dim:#5a6b60;
+  --green:#7fd858; --green-dim:#4a7a38; --amber:#f5a93c; --red:#ff6b5e;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#e9ede7; --panel:#f5f7f3; --panel2:#eef1ea; --border:#c7d1c3; --border-hi:#a9b8a3;
+    --text:#1b241d; --muted:#51604f; --dim:#7c8a79;
+    --green:#2f7d1f; --green-dim:#5a9148; --amber:#9a6a0c; --red:#b33f33;
+  }
+}
+:root[data-theme="dark"]{ --bg:#0d1310; --text:#dce8de; }
+*{box-sizing:border-box;}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+body{
+  margin:0; min-height:100%; background:var(--bg); color:var(--text);
+  font-family:var(--mono);
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+.wrap{max-width:1180px; margin:0 auto; padding:22px 18px 40px;}
+header{display:flex; align-items:baseline; justify-content:space-between; gap:12px; flex-wrap:wrap;
+  border-bottom:1px solid var(--border); padding-bottom:14px; margin-bottom:18px;}
+header h1{font-size:17px; letter-spacing:.04em; margin:0; font-weight:600; color:var(--text);}
+header h1 span{color:var(--green);}
+header p{margin:4px 0 0; color:var(--muted); font-size:12px;}
+.grid{display:grid; grid-template-columns:230px 1fr 230px; gap:16px;}
+@media (max-width:900px){.grid{grid-template-columns:1fr;}}
+.panel{background:var(--panel); border:1px solid var(--border); border-radius:3px; padding:14px;}
+.panel + .panel{margin-top:14px;}
+.label{font-size:10px; letter-spacing:.08em; color:var(--dim); margin-bottom:6px; display:block;}
+.row{margin-bottom:14px;}
+.row:last-child{margin-bottom:0;}
+select,input[type=range]{width:100%;}
+select{background:var(--panel2); color:var(--text); border:1px solid var(--border-hi); border-radius:2px;
+  padding:7px 8px; font-family:var(--mono); font-size:12.5px;}
+input[type=range]{accent-color:var(--green); height:18px;}
+.val{color:var(--green); font-size:12px; float:right;}
+.scope{background:var(--panel2); border:1px solid var(--border); border-radius:3px; padding:10px 12px 4px; margin-bottom:14px;}
+.scope h2{font-size:10.5px; letter-spacing:.08em; color:var(--muted); margin:0 0 6px; font-weight:500;}
+.chart-box{position:relative; width:100%; height:150px;}
+.status{text-align:center; padding:18px 10px; border:1px solid var(--border); border-radius:3px; margin-bottom:14px;}
+.status .dot{width:9px; height:9px; border-radius:50%; display:inline-block; margin-right:7px;}
+.status.ok{background:rgba(127,216,88,.07);} .status.ok .dot{background:var(--green); box-shadow:0 0 8px var(--green);}
+.status.fault{background:rgba(255,107,94,.08);} .status.fault .dot{background:var(--red); box-shadow:0 0 8px var(--red);}
+.status .line1{font-size:13px; font-weight:600; letter-spacing:.03em;}
+.status.ok .line1{color:var(--green);} .status.fault .line1{color:var(--red);}
+.status .line2{font-size:11px; color:var(--muted); margin-top:5px;}
+.readout{display:flex; justify-content:space-between; font-size:11.5px; padding:6px 0; border-bottom:1px solid var(--border);}
+.readout:last-child{border-bottom:none;}
+.readout span:first-child{color:var(--muted);}
+.readout span:last-child{color:var(--text);}
+.note{font-size:10.5px; color:var(--dim); line-height:1.5; margin-top:10px;}
+footer{margin-top:22px; font-size:10.5px; color:var(--dim); border-top:1px solid var(--border); padding-top:12px; line-height:1.6;}
+.intro{font-size:11.5px; color:var(--muted); line-height:1.6; margin-bottom:18px; max-width:760px;}
+.intro b{color:var(--green);}
+.rig{background:var(--panel2); border:1px solid var(--border); border-radius:3px; padding:10px; margin-bottom:10px;}
+.rig svg{width:100%; height:auto; display:block;}
+.motor-grid{display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-bottom:4px;}
+.motor-card{background:var(--panel2); border:1px solid var(--border-hi); border-radius:2px; padding:8px 6px;
+  color:var(--muted); font-family:var(--mono); font-size:10.5px; cursor:pointer; text-align:center;}
+.motor-card:hover{border-color:var(--green-dim);}
+.motor-card.active{border-color:var(--green); color:var(--green); background:rgba(127,216,88,.08);}
+.run-btn{width:100%; margin-top:14px; padding:11px; background:var(--green-dim); color:#0d1310; border:none;
+  border-radius:2px; font-family:var(--mono); font-size:12.5px; font-weight:700; letter-spacing:.04em; cursor:pointer;}
+.run-btn:hover{background:var(--green);}
+.chart-box{overflow:hidden;}
+.ph{position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--dim);
+  font-size:11px; text-align:center; padding:10px;}
+.status.idle{background:rgba(255,255,255,.02);} .status.idle .dot{background:var(--dim);} .status.idle .line1{color:var(--muted);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>VIBRA<span>MOT</span></h1>
+      <p>Browser-based vibration fault diagnosis — signal → window → FFT → feature → diagnosis</p>
+    </div>
+    <p id="specs" style="font-size:11px;"></p>
+  </header>
+
+  <p class="intro"><b>1. Place a motor</b> on the test rig below &nbsp;→&nbsp; <b>2. set</b> its speed, fault type and severity &nbsp;→&nbsp; <b>3. click RUN ANALYSIS</b> to sample the accelerometer, run the FFT and see whether a fault is diagnosed.</p>
+
+  <div class="grid">
+    <!-- LEFT: controls -->
+    <div>
+      <div class="rig">
+        <svg viewBox="0 0 210 90" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="66" width="202" height="8" fill="var(--border-hi)"/>
+          <rect x="18" y="30" width="56" height="36" rx="3" fill="var(--panel)" stroke="var(--green)" stroke-width="1.5"/>
+          <text id="rigLabel" x="46" y="52" fill="var(--green)" font-size="9" font-family="monospace" text-anchor="middle">IND</text>
+          <rect x="74" y="44" width="46" height="8" fill="var(--border-hi)"/>
+          <circle cx="132" cy="48" r="16" fill="var(--panel)" stroke="var(--border-hi)" stroke-width="1.5"/>
+          <circle cx="132" cy="48" r="3" fill="var(--border-hi)"/>
+          <rect x="52" y="18" width="10" height="12" fill="var(--amber)"/>
+          <text x="57" y="14" fill="var(--amber)" font-size="7" font-family="monospace" text-anchor="middle">ACC</text>
+        </svg>
+      </div>
+      <div class="panel">
+        <div class="row">
+          <label class="label">MOTOR TYPE — click to place on rig</label>
+          <div class="motor-grid">
+            <div class="motor-card active" data-motor="ind" data-label="IND">3-phase induction</div>
+            <div class="motor-card" data-motor="dc" data-label="DC">DC shunt</div>
+            <div class="motor-card" data-motor="sync" data-label="SYN">Synchronous</div>
+            <div class="motor-card" data-motor="bldc" data-label="BLDC">BLDC</div>
+          </div>
+        </div>
+        <div class="row">
+          <label class="label">SHAFT SPEED <span class="val" id="rpmVal">1500 RPM</span></label>
+          <input type="range" id="rpm" min="300" max="3600" step="10" value="1500">
+        </div>
+        <div class="row">
+          <label class="label">FAULT TYPE</label>
+          <select id="fault">
+            <option value="none">Healthy (baseline)</option>
+            <option value="imbalance">Rotor imbalance (1×)</option>
+            <option value="misalignment">Shaft misalignment (2×)</option>
+            <option value="bpfo">Bearing — outer race (BPFO)</option>
+            <option value="bpfi">Bearing — inner race (BPFI)</option>
+            <option value="bsf">Bearing — rolling element (BSF)</option>
+          </select>
+        </div>
+        <div class="row">
+          <label class="label">FAULT SEVERITY <span class="val" id="sevVal">0.60</span></label>
+          <input type="range" id="sev" min="0" max="1" step="0.01" value="0.6">
+        </div>
+        <div class="row">
+          <label class="label">NOISE FLOOR <span class="val" id="noiseVal">0.15</span></label>
+          <input type="range" id="noise" min="0" max="0.6" step="0.01" value="0.15">
+        </div>
+      </div>
+      <div class="panel">
+        <label class="label">BEARING GEOMETRY</label>
+        <div class="row" style="margin-bottom:8px;"><label class="label" style="margin-bottom:2px;">Rolling elements N <span class="val" id="nVal">9</span></label><input type="range" id="n" min="6" max="16" step="1" value="9"></div>
+        <div class="row" style="margin-bottom:8px;"><label class="label" style="margin-bottom:2px;">d / D ratio <span class="val" id="ddVal">0.30</span></label><input type="range" id="dd" min="0.15" max="0.45" step="0.01" value="0.30"></div>
+        <div class="row"><label class="label" style="margin-bottom:2px;">Contact angle θ° <span class="val" id="thVal">0°</span></label><input type="range" id="theta" min="0" max="40" step="1" value="0"></div>
+      </div>
+      <button class="run-btn" id="runBtn">▶ RUN ANALYSIS</button>
+    </div>
+
+    <!-- CENTER: scopes -->
+    <div>
+      <div class="scope"><h2>TIME DOMAIN — ACCELEROMETER SIGNAL x(t)</h2><div class="chart-box"><canvas id="wave"></canvas><div class="ph" id="wavePh">Place a motor, set parameters, click RUN ANALYSIS</div></div></div>
+      <div class="scope"><h2>FREQUENCY DOMAIN — FFT MAGNITUDE SPECTRUM (Hanning window, N=2048)</h2><div class="chart-box"><canvas id="spec"></canvas><div class="ph" id="specPh">Waiting for first run</div></div></div>
+      <div class="note" id="formula"></div>
+    </div>
+
+    <!-- RIGHT: diagnosis -->
+    <div>
+      <div class="status idle" id="statusBox">
+        <div class="line1"><span class="dot"></span><span id="statusText">AWAITING RUN</span></div>
+        <div class="line2" id="statusSub">Place a motor, set parameters, click RUN ANALYSIS</div>
+      </div>
+      <div class="panel">
+        <label class="label">DIAGNOSTIC READOUT</label>
+        <div class="readout"><span>Shaft freq f_r</span><span id="roFr">—</span></div>
+        <div class="readout"><span>Expected fault freq</span><span id="roFf">—</span></div>
+        <div class="readout"><span>Peak amplitude</span><span id="roPeak">—</span></div>
+        <div class="readout"><span>Baseline threshold</span><span id="roThresh">—</span></div>
+        <div class="readout"><span>Peak / threshold</span><span id="roRatio">—</span></div>
+      </div>
+      <div class="note">BPFO = (N/2)f_r[1−(d/D)cosθ] · BPFI = (N/2)f_r[1+(d/D)cosθ] · BSF = (D/2d)f_r[1−(d/D)²cos²θ]. Imbalance sits at 1×f_r, misalignment at 2×f_r.</div>
+    </div>
+  </div>
+
+  <footer>
+    Client-side only — signal generator, Nyquist-rate sampling, Hann windowing, radix-2 FFT and threshold-based feature detection all run in this page. Signals are synthetic; this teaches the diagnostic principles, it does not replace testing on real machines.
+  </footer>
+</div>
+
+<script>
+// ---------- FFT (iterative radix-2 Cooley–Tukey) ----------
+function fft(re, im){
+  const n = re.length;
+  for (let i=1, j=0; i<n; i++){
+    let bit = n>>1;
+    for (; j&bit; bit>>=1) j ^= bit;
+    j ^= bit;
+    if (i<j){ [re[i],re[j]]=[re[j],re[i]]; [im[i],im[j]]=[im[j],im[i]]; }
+  }
+  for (let len=2; len<=n; len<<=1){
+    const ang = -2*Math.PI/len;
+    const wr = Math.cos(ang), wi = Math.sin(ang);
+    for (let i=0; i<n; i+=len){
+      let cwr=1, cwi=0;
+      for (let k=0; k<len/2; k++){
+        const ur=re[i+k], ui=im[i+k];
+        const vr=re[i+k+len/2]*cwr - im[i+k+len/2]*cwi;
+        const vi=re[i+k+len/2]*cwi + im[i+k+len/2]*cwr;
+        re[i+k]=ur+vr; im[i+k]=ui+vi;
+        re[i+k+len/2]=ur-vr; im[i+k+len/2]=ui-vi;
+        const nwr=cwr*wr-cwi*wi, nwi=cwr*wi+cwi*wr; cwr=nwr; cwi=nwi;
+      }
+    }
+  }
+}
+
+const N = 2048, FS = 4000; // sample count, sample rate (Hz) — Nyquist 2000Hz
+document.getElementById('specs').textContent = `fs=${FS}Hz  N=${N}  Δf=${(FS/N).toFixed(2)}Hz`;
+
+function expectedFaultFreq(fr, faultType, n, dd, thetaDeg){
+  const th = thetaDeg*Math.PI/180;
+  switch(faultType){
+    case 'imbalance': return fr;
+    case 'misalignment': return 2*fr;
+    case 'bpfo': return (n/2)*fr*(1-dd*Math.cos(th));
+    case 'bpfi': return (n/2)*fr*(1+dd*Math.cos(th));
+    case 'bsf': return (1/(2*dd))*fr*(1-dd*dd*Math.cos(th)*Math.cos(th));
+    default: return null;
+  }
+}
+
+let waveChart, specChart, selectedMotor = 'ind';
+
+document.querySelectorAll('.motor-card').forEach(card=>{
+  card.addEventListener('click', ()=>{
+    document.querySelectorAll('.motor-card').forEach(c=>c.classList.remove('active'));
+    card.classList.add('active');
+    selectedMotor = card.dataset.motor;
+    document.getElementById('rigLabel').textContent = card.dataset.label;
+  });
+});
+
+['rpm','sev','noise','n','dd','theta'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', ()=>{
+    const el = document.getElementById(id), v = +el.value;
+    if (id==='rpm') document.getElementById('rpmVal').textContent = v+' RPM';
+    if (id==='sev') document.getElementById('sevVal').textContent = v.toFixed(2);
+    if (id==='noise') document.getElementById('noiseVal').textContent = v.toFixed(2);
+    if (id==='n') document.getElementById('nVal').textContent = v;
+    if (id==='dd') document.getElementById('ddVal').textContent = v.toFixed(2);
+    if (id==='theta') document.getElementById('thVal').textContent = v+'°';
+  });
+});
+
+function render(){
+  const wavePh = document.getElementById('wavePh'); if (wavePh) wavePh.remove();
+  const specPh = document.getElementById('specPh'); if (specPh) specPh.remove();
+  const rpm = +document.getElementById('rpm').value;
+  const fault = document.getElementById('fault').value;
+  const sev = +document.getElementById('sev').value;
+  const noise = +document.getElementById('noise').value;
+  const n = +document.getElementById('n').value;
+  const dd = +document.getElementById('dd').value;
+  const theta = +document.getElementById('theta').value;
+
+  document.getElementById('rpmVal').textContent = rpm+' RPM';
+  document.getElementById('sevVal').textContent = sev.toFixed(2);
+  document.getElementById('noiseVal').textContent = noise.toFixed(2);
+  document.getElementById('nVal').textContent = n;
+  document.getElementById('ddVal').textContent = dd.toFixed(2);
+  document.getElementById('thVal').textContent = theta+'°';
+
+  const fr = rpm/60;
+  const ff = expectedFaultFreq(fr, fault, n, dd, theta);
+
+  // --- signal generation ---
+  const re = new Float64Array(N), im = new Float64Array(N), t = new Float64Array(N);
+  for (let i=0;i<N;i++){
+    const ti = i/FS;
+    let x = 1.0*Math.sin(2*Math.PI*fr*ti);
+    if (ff) x += (0.3+1.7*sev)*Math.sin(2*Math.PI*ff*ti);
+    x += (Math.random()*2-1)*noise;
+    re[i]=x; t[i]=ti;
+  }
+
+  // --- waveform plot (first 400 samples) ---
+  const showN = 400;
+  const waveLabels = Array.from({length:showN}, (_,i)=> (t[i]*1000).toFixed(0));
+  const waveData = Array.from(re.slice(0,showN));
+
+  // --- Hann window + FFT ---
+  const windowed = new Float64Array(N);
+  for (let i=0;i<N;i++) windowed[i] = re[i]*0.5*(1-Math.cos(2*Math.PI*i/(N-1)));
+  const fre = Float64Array.from(windowed), fim = new Float64Array(N);
+  fft(fre, fim);
+  const half = N/2;
+  const mag = new Float64Array(half);
+  for (let i=0;i<half;i++) mag[i] = Math.sqrt(fre[i]*fre[i]+fim[i]*fim[i])/(N/2);
+  const df = FS/N;
+  const freqs = Array.from({length:half}, (_,i)=> (i*df).toFixed(0));
+
+  // --- feature extraction: peak near expected fault freq, baseline threshold ---
+  let peak=0, peakBin=0, status='ok', statusText='NORMAL', statusSub='No fault signature above threshold';
+  const baseline = mag.reduce((a,b)=>a+b,0)/mag.length;
+  const threshold = baseline*4.0;
+  if (ff){
+    const bin = Math.round(ff/df);
+    const lo = Math.max(0,bin-2), hi = Math.min(half-1,bin+2);
+    for (let i=lo;i<=hi;i++) if (mag[i]>peak){peak=mag[i]; peakBin=i;}
+    if (peak > threshold){
+      status='fault'; 
+      const names = {imbalance:'ROTOR IMBALANCE', misalignment:'SHAFT MISALIGNMENT', bpfo:'OUTER-RACE BEARING FAULT', bpfi:'INNER-RACE BEARING FAULT', bsf:'ROLLING-ELEMENT FAULT'};
+      statusText = 'FAULT DETECTED: '+names[fault];
+      statusSub = `Peak ${peak.toFixed(3)} exceeds threshold ${threshold.toFixed(3)} at ${ff.toFixed(1)} Hz`;
+    } else {
+      statusSub = `Peak ${peak.toFixed(3)} below threshold ${threshold.toFixed(3)} — fault present but sub-threshold`;
+    }
+  } else {
+    const bin = Math.round(fr/df);
+    peak = mag[bin]||0;
+  }
+
+  document.getElementById('roFr').textContent = fr.toFixed(2)+' Hz';
+  document.getElementById('roFf').textContent = ff? ff.toFixed(2)+' Hz' : '—';
+  document.getElementById('roPeak').textContent = peak? peak.toFixed(3) : '—';
+  document.getElementById('roThresh').textContent = threshold.toFixed(3);
+  document.getElementById('roRatio').textContent = ff? (peak/threshold).toFixed(2)+'×' : '—';
+  document.getElementById('formula').textContent = ff ? `f_r = ${rpm}/60 = ${fr.toFixed(2)} Hz   →   expected fault freq = ${ff.toFixed(2)} Hz` : `f_r = ${rpm}/60 = ${fr.toFixed(2)} Hz   (healthy baseline — no fault frequency injected)`;
+
+  const box = document.getElementById('statusBox');
+  box.className = 'status '+status;
+  document.getElementById('statusText').textContent = statusText;
+  document.getElementById('statusSub').textContent = statusSub;
+
+  const css = getComputedStyle(document.documentElement);
+  const green = css.getPropertyValue('--green').trim();
+  const amber = css.getPropertyValue('--amber').trim();
+  const muted = css.getPropertyValue('--muted').trim();
+  const border = css.getPropertyValue('--border').trim();
+
+  const commonScales = (xTitle)=>({
+    x:{ticks:{color:muted,font:{family:'IBM Plex Mono',size:9},maxTicksLimit:8},grid:{color:border},title:{display:true,text:xTitle,color:muted,font:{family:'IBM Plex Mono',size:9}}},
+    y:{ticks:{color:muted,font:{family:'IBM Plex Mono',size:9}},grid:{color:border}}
+  });
+
+  if (!waveChart){
+    waveChart = new Chart(document.getElementById('wave'), {type:'line',
+      data:{labels:waveLabels, datasets:[{data:waveData, borderColor:green, borderWidth:1.3, pointRadius:0, tension:0.15}]},
+      options:{animation:false, responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:commonScales('ms')}});
+  } else { waveChart.data.labels=waveLabels; waveChart.data.datasets[0].data=waveData; waveChart.data.datasets[0].borderColor=green; waveChart.update('none'); }
+
+  if (!specChart){
+    specChart = new Chart(document.getElementById('spec'), {type:'line',
+      data:{labels:freqs, datasets:[{data:Array.from(mag), borderColor:amber, borderWidth:1.3, pointRadius:0, tension:0.1}]},
+      options:{animation:false, responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:commonScales('Hz')}});
+  } else { specChart.data.labels=freqs; specChart.data.datasets[0].data=Array.from(mag); specChart.data.datasets[0].borderColor=amber; specChart.update('none'); }
+}
+
+function boot(tries){
+  if (typeof Chart !== 'undefined'){
+    document.getElementById('runBtn').addEventListener('click', render);
+    return;
+  }
+  if (tries > 60){
+    document.querySelectorAll('.chart-box').forEach(b => b.innerHTML =
+      '<div style="color:var(--red);font-size:11px;padding:10px;">Chart.js failed to load from both CDNs — check your connection and reload.</div>');
+    return;
+  }
+  setTimeout(()=>boot(tries+1), 100);
+}
+boot(0);
+</script>
+</body>
+</html>
